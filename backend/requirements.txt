@@ -2,5 +2,6 @@ flask
 flask-cors
 requests
 tensorflow
-opencv-python
+opencv-python-headless
 numpy
+gunicorn

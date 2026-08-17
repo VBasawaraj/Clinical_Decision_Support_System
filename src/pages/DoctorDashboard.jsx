@@ -6,6 +6,7 @@ import {
 } from "../lib/aiReports";
 import { useNavigate } from "react-router-dom";
 import "../doctor-dashboard.css";
+const AI_API_URL = import.meta.env.VITE_AI_API_URL;
 
 function Icon({ name, size = 20 }) {
   const icons = {
@@ -305,29 +306,29 @@ function DoctorDashboard() {
        */
 
       const response = await fetch(
-        "http://localhost:8000/api/ai/predict",
-        {
-          method: "POST",
+  `${AI_API_URL}/api/ai/predict`,
+  {
+    method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+    headers: {
+      "Content-Type": "application/json",
+    },
 
-          body: JSON.stringify({
-            submission_id: selectedSubmission.id,
-            patient_id: patient.id,
-            submission_type:
-              selectedSubmission.submission_type,
-            file_path:
-              selectedSubmission.file_path,
-            file_name:
-              selectedSubmission.file_name,
-            image_url: imageUrl,
-            description:
-              selectedSubmission.description,
-          }),
-        }
-      );
+    body: JSON.stringify({
+      submission_id: selectedSubmission.id,
+      patient_id: patient.id,
+      submission_type:
+        selectedSubmission.submission_type,
+      file_path:
+        selectedSubmission.file_path,
+      file_name:
+        selectedSubmission.file_name,
+      image_url: imageUrl,
+      description:
+        selectedSubmission.description,
+    }),
+  }
+);
 
       if (!response.ok) {
         throw new Error(

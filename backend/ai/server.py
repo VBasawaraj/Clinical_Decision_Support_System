@@ -18,7 +18,15 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 HEATMAP_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
-CORS(app)
+
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": "*"
+        }
+    }
+)
 
 
 DISEASE_EXPLANATIONS = {
@@ -128,10 +136,16 @@ def predict():
         "model": "Skin Disease Predictor",
         "model_type": "skin_disease",
         "xai": build_xai_explanation(result),
-        "heatmap_url": f"http://localhost:8000/api/ai/heatmaps/{heatmap_path.name}",
+        "heatmap_url": f"{request.host_url.rstrip('/')}/api/ai/heatmaps/{heatmap_path.name}",
         "summary": f"Predicted {result['predicted_disease']} with {result['confidence'] * 100:.1f}% confidence.",
     })
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    import os
+
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000)),
+        debug=False,
+    )
