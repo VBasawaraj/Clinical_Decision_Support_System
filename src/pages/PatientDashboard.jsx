@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { loadPatientReports } from "../lib/aiReports";
 import { useNavigate } from "react-router-dom";
 import "../patient-dashboard.css";
 
@@ -113,21 +114,26 @@ function PatientDashboard() {
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [activeSection, setActiveSection] = useState("overview");
   const [symptoms, setSymptoms] = useState("");
+  const [profileName, setProfileName] = useState("");
 
   const [skinFile, setSkinFile] = useState(null);
   const [xrayFile, setXrayFile] = useState(null);
 
   const [submissions, setSubmissions] = useState([]);
+  const [reports, setReports] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     loadPatient();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPatient = async () => {
@@ -165,13 +171,23 @@ function PatientDashboard() {
       }
 
       setProfile(profileData);
+      setProfileName(profileData.full_name || "");
 
       await loadSubmissions(user.id);
+      await loadReports(user.id);
     } catch (err) {
       console.error(err);
       setError("Something went wrong.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadReports = async (patientId) => {
+    try {
+      setReports(await loadPatientReports(patientId));
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -193,6 +209,41 @@ function PatientDashboard() {
   const clearMessages = () => {
     setMessage("");
     setError("");
+  };
+
+  const updateProfile = async (e) => {
+    e.preventDefault();
+    clearMessages();
+
+    const nextName = profileName.trim();
+
+    if (!nextName) {
+      setError("Full name is required.");
+      return;
+    }
+
+    try {
+      setSavingProfile(true);
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: nextName })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      setProfile((current) => ({
+        ...current,
+        full_name: nextName,
+      }));
+
+      setMessage("Profile updated successfully.");
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const submitSymptoms = async () => {
@@ -373,27 +424,52 @@ function PatientDashboard() {
 
           <nav>
 
-            <button className="side-link active">
+            <button
+              className={`side-link ${
+                activeSection === "overview"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setActiveSection("overview")}
+            >
               <Icon name="grid" />
               <span>Overview</span>
             </button>
 
-            <button className="side-link">
+            <button
+              className={`side-link ${
+                activeSection === "submissions"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() =>
+                setActiveSection("submissions")
+              }
+            >
               <Icon name="upload" />
               <span>Submissions</span>
             </button>
 
-            <button className="side-link">
-              <Icon name="file" />
-              <span>Medical Records</span>
-            </button>
-
-            <button className="side-link">
+            <button
+              className={`side-link ${
+                activeSection === "reports"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setActiveSection("reports")}
+            >
               <Icon name="report" />
-              <span>Reports</span>
+              <span>AI Reports</span>
             </button>
 
-            <button className="side-link">
+            <button
+              className={`side-link ${
+                activeSection === "profile"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setActiveSection("profile")}
+            >
               <Icon name="user" />
               <span>Profile</span>
             </button>
@@ -443,7 +519,12 @@ function PatientDashboard() {
           <div className="breadcrumb">
             Patient Portal
             <span>/</span>
-            <strong>Overview</strong>
+            <strong>
+              {activeSection === "overview" && "Overview"}
+              {activeSection === "submissions" && "Submissions"}
+              {activeSection === "reports" && "AI Reports"}
+              {activeSection === "profile" && "Profile"}
+            </strong>
           </div>
 
           <div className="topbar-actions">
@@ -472,6 +553,8 @@ function PatientDashboard() {
 
 
         {/* HERO */}
+
+        {activeSection === "overview" && (
 
         <section className="welcome-section">
 
@@ -507,8 +590,12 @@ function PatientDashboard() {
 
         </section>
 
+        )}
+
 
         {/* PROFILE STRIP */}
+
+        {activeSection !== "profile" && (
 
         <section className="profile-strip">
 
@@ -573,6 +660,8 @@ function PatientDashboard() {
 
         </section>
 
+        )}
+
 
         {/* MESSAGES */}
 
@@ -594,6 +683,9 @@ function PatientDashboard() {
 
 
         {/* MEDICAL SUBMISSIONS */}
+
+        {(activeSection === "overview" ||
+          activeSection === "submissions") && (
 
         <section className="submission-section">
 
@@ -842,8 +934,192 @@ function PatientDashboard() {
 
         </section>
 
+        )}
+
+
+        {/* SAVED REPORTS */}
+
+        {(activeSection === "overview" ||
+          activeSection === "reports") && (
+
+        <section className="patient-reports-section">
+
+          <div className="section-header activity-header">
+
+            <div>
+              <div className="section-kicker">
+                AI REPORTS
+              </div>
+
+              <h2>
+                Saved reports
+              </h2>
+
+            </div>
+
+            <span className="activity-count">
+              {reports.length} saved
+            </span>
+
+          </div>
+
+          {reports.length === 0 ? (
+
+            <div className="empty-activity">
+
+              <div className="empty-icon">
+                <Icon name="report" size={22} />
+              </div>
+
+              <div>
+                <h3>
+                  No saved reports yet
+                </h3>
+
+                <p>
+                  Doctor-reviewed AI reports will appear
+                  here after they are saved.
+                </p>
+              </div>
+
+            </div>
+
+          ) : (
+
+            <div className="patient-report-list">
+
+              {reports.map((report) => (
+
+                <article
+                  className="patient-report-card"
+                  key={report.id}
+                >
+
+                  <div>
+                    <span>
+                      {report.model ||
+                        "Clinical AI Model"}
+                    </span>
+
+                    <h3>
+                      {report.prediction}
+                    </h3>
+
+                    {report.confidence !== null && (
+                      <strong>
+                        {(
+                          Number(report.confidence) *
+                          100
+                        ).toFixed(1)}
+                        % confidence
+                      </strong>
+                    )}
+                  </div>
+
+                  {report.report?.xai?.about && (
+                    <p>
+                      {report.report.xai.about}
+                    </p>
+                  )}
+
+                  <time>
+                    {formatDate(report.created_at)}
+                  </time>
+
+                </article>
+
+              ))}
+
+            </div>
+
+          )}
+
+        </section>
+
+        )}
+
+
+        {/* PROFILE */}
+
+        {activeSection === "profile" && (
+
+          <section className="patient-profile-section">
+
+            <div className="section-header">
+
+              <div>
+                <div className="section-kicker">
+                  PROFILE
+                </div>
+
+                <h2>
+                  Account details
+                </h2>
+
+                <p>
+                  Keep your patient identity accurate for
+                  clinical review and saved report access.
+                </p>
+              </div>
+
+              <div className="secure-label">
+                <Icon name="shield" size={14} />
+                Verified
+              </div>
+
+            </div>
+
+            <form
+              className="profile-form"
+              onSubmit={updateProfile}
+            >
+
+              <label>
+                <span>Full name</span>
+                <input
+                  value={profileName}
+                  onChange={(e) =>
+                    setProfileName(e.target.value)
+                  }
+                />
+              </label>
+
+              <label>
+                <span>Email</span>
+                <input
+                  value={user?.email || ""}
+                  disabled
+                />
+              </label>
+
+              <label>
+                <span>Patient ID</span>
+                <input
+                  value={profile?.user_code || user?.id || ""}
+                  disabled
+                />
+              </label>
+
+              <button
+                className="primary-action profile-save"
+                disabled={savingProfile}
+              >
+                {savingProfile
+                  ? "Saving..."
+                  : "Save profile"}
+                <span>→</span>
+              </button>
+
+            </form>
+
+          </section>
+
+        )}
+
 
         {/* ACTIVITY */}
+
+        {activeSection === "overview" && (
 
         <section className="activity-section">
 
@@ -947,6 +1223,8 @@ function PatientDashboard() {
           )}
 
         </section>
+
+        )}
 
 
         {/* FOOTER */}

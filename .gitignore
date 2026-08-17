@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+backend/runtime/
+__pycache__/
+*.py[cod]
 
 # Environment variables
 .env
@@ -28,4 +31,3 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
-

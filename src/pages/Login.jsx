@@ -54,11 +54,34 @@ function Login() {
   return (
     <div className="auth-container">
 
+      <section className="auth-panel">
+
+        <div className="auth-brand">
+          <div className="auth-mark">+</div>
+
+          <div>
+            <strong>Clinical CDS</strong>
+            <span>Secure decision-support workspace</span>
+          </div>
+        </div>
+
+        <div className="auth-copy">
+          <span>CLINICIAN AND PATIENT ACCESS</span>
+          <h1>Sign in to your clinical workspace.</h1>
+          <p>
+            Review submissions, manage care information, and
+            continue AI-assisted clinical workflows securely.
+          </p>
+        </div>
+
+      </section>
+
       <div className="auth-card">
 
-        <h1>Clinical CDS</h1>
-
-        <h2>Login</h2>
+        <div className="auth-card-heading">
+          <span>WELCOME BACK</span>
+          <h2>Login</h2>
+        </div>
 
         {error && (
           <p className="error">
@@ -90,16 +113,18 @@ function Login() {
 
         </form>
 
-        <Link to="/forgot-password">
-          Forgot Password?
-        </Link>
-
-        <p>
-          Don't have an account?{" "}
-          <Link to="/register">
-            Register
+        <div className="auth-links">
+          <Link to="/forgot-password">
+            Forgot password?
           </Link>
-        </p>
+
+          <p>
+            Don't have an account?{" "}
+            <Link to="/register">
+              Register
+            </Link>
+          </p>
+        </div>
 
       </div>
 

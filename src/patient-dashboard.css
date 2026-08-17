@@ -1622,3 +1622,121 @@ textarea {
   }
 
 }
+
+@media (max-width: 720px) {
+  .profile-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-save {
+    max-width: none;
+  }
+}
+
+.patient-reports-section {
+  margin-top: 26px;
+}
+
+.patient-report-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.patient-report-card {
+  display: grid;
+  gap: 12px;
+  min-height: 210px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.patient-report-card span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.patient-report-card h3 {
+  margin: 6px 0;
+  color: #0f172a;
+  font-size: 19px;
+}
+
+.patient-report-card strong {
+  color: #2563eb;
+  font-size: 13px;
+}
+
+.patient-report-card p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.patient-report-card time {
+  align-self: end;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.patient-profile-section {
+  margin-top: 26px;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.profile-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.profile-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-form label span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.profile-form input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: #fbfdff;
+  color: #172033;
+  outline: none;
+}
+
+.profile-form input:focus {
+  border-color: #1769ff;
+  box-shadow: 0 0 0 4px rgba(23, 105, 255, 0.12);
+}
+
+.profile-form input:disabled {
+  background: #f1f5f9;
+  color: #667085;
+}
+
+.profile-save {
+  grid-column: 1 / -1;
+  max-width: 220px;
+}

@@ -44,7 +44,10 @@ function ForgotPassword() {
 
       <div className="auth-card">
 
-        <h1>Forgot Password</h1>
+        <div className="auth-card-heading">
+          <span>ACCOUNT RECOVERY</span>
+          <h2>Forgot password</h2>
+        </div>
 
         {error && (
           <p className="error">
@@ -79,7 +82,7 @@ function ForgotPassword() {
         </form>
 
         <Link to="/">
-          Back to Login
+          Back to login
         </Link>
 
       </div>

@@ -145,10 +145,35 @@ function Register() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1>Clinical CDS</h1>
 
-        <h2>Create Account</h2>
+      <section className="auth-panel">
+
+        <div className="auth-brand">
+          <div className="auth-mark">+</div>
+
+          <div>
+            <strong>Clinical CDS</strong>
+            <span>Secure care collaboration</span>
+          </div>
+        </div>
+
+        <div className="auth-copy">
+          <span>CREATE YOUR ACCOUNT</span>
+          <h1>Join the Clinical CDS platform.</h1>
+          <p>
+            Patients can submit medical information and doctors
+            can review AI-assisted reports from one workspace.
+          </p>
+        </div>
+
+      </section>
+
+      <div className="auth-card">
+
+        <div className="auth-card-heading">
+          <span>NEW ACCOUNT</span>
+          <h2>Create account</h2>
+        </div>
 
         {error && (
           <p className="error">

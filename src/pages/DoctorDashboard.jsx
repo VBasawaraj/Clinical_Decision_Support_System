@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import {
+  loadPatientReports,
+  saveAiReport,
+} from "../lib/aiReports";
 import { useNavigate } from "react-router-dom";
 import "../doctor-dashboard.css";
 
@@ -111,21 +115,30 @@ function DoctorDashboard() {
   const navigate = useNavigate();
 
   const [patientCode, setPatientCode] = useState("");
+  const [activeSection, setActiveSection] = useState("dashboard");
 
   const [doctor, setDoctor] = useState(null);
   const [patient, setPatient] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [savedReports, setSavedReports] = useState([]);
 
   const [selectedSubmission, setSelectedSubmission] =
     useState(null);
 
   const [aiResult, setAiResult] = useState(null);
+  const [activeReportId, setActiveReportId] = useState(null);
 
   const [searching, setSearching] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [savingReport, setSavingReport] = useState(false);
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    getDoctor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getDoctor = async () => {
     const {
@@ -158,8 +171,10 @@ function DoctorDashboard() {
     setMessage("");
     setPatient(null);
     setSubmissions([]);
+    setSavedReports([]);
     setSelectedSubmission(null);
     setAiResult(null);
+    setActiveReportId(null);
 
     const code = patientCode.trim().toUpperCase();
 
@@ -215,6 +230,9 @@ function DoctorDashboard() {
       }
 
       setSubmissions(patientSubmissions || []);
+      setSavedReports(
+        await loadPatientReports(foundPatient.id)
+      );
 
       setMessage(
         `${foundPatient.full_name}'s records loaded successfully.`
@@ -230,8 +248,22 @@ function DoctorDashboard() {
   const openSubmission = (submission) => {
     setSelectedSubmission(submission);
     setAiResult(null);
+    setActiveReportId(null);
     setError("");
     setMessage("");
+  };
+
+  const openSavedReport = (report) => {
+    setAiResult(report.report);
+    setActiveReportId(report.id);
+    setSelectedSubmission(
+      submissions.find(
+        (submission) =>
+          submission.id === report.submission_id
+      ) || null
+    );
+    setError("");
+    setMessage("Saved report opened.");
   };
 
   const generateAIReport = async () => {
@@ -245,6 +277,24 @@ function DoctorDashboard() {
 
     try {
       setGenerating(true);
+
+      let imageUrl = null;
+
+      if (selectedSubmission.file_path) {
+        const { data: signedUrlData, error: signedUrlError } =
+          await supabase.storage
+            .from("medical-files")
+            .createSignedUrl(
+              selectedSubmission.file_path,
+              60 * 10
+            );
+
+        if (signedUrlError) {
+          throw signedUrlError;
+        }
+
+        imageUrl = signedUrlData?.signedUrl;
+      }
 
       /*
        * IMPORTANT:
@@ -270,6 +320,9 @@ function DoctorDashboard() {
               selectedSubmission.submission_type,
             file_path:
               selectedSubmission.file_path,
+            file_name:
+              selectedSubmission.file_name,
+            image_url: imageUrl,
             description:
               selectedSubmission.description,
           }),
@@ -285,6 +338,7 @@ function DoctorDashboard() {
       const result = await response.json();
 
       setAiResult(result);
+      setActiveReportId(null);
 
       setMessage(
         "AI report generated successfully."
@@ -299,6 +353,46 @@ function DoctorDashboard() {
       );
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const saveCurrentReport = async () => {
+    if (
+      !aiResult ||
+      !patient ||
+      !selectedSubmission ||
+      !doctor
+    ) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    try {
+      setSavingReport(true);
+
+      const savedReport = await saveAiReport({
+        patientId: patient.id,
+        doctorId: doctor.id,
+        submission: selectedSubmission,
+        report: aiResult,
+      });
+
+      setSavedReports((reports) => [
+        savedReport,
+        ...reports,
+      ]);
+      setActiveReportId(savedReport.id);
+      setMessage("AI report saved. It can be viewed later.");
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.message ||
+          "Unable to save the AI report."
+      );
+    } finally {
+      setSavingReport(false);
     }
   };
 
@@ -347,22 +441,38 @@ function DoctorDashboard() {
 
           <nav>
 
-            <button className="doctor-nav active">
+            <button
+              className={`doctor-nav ${
+                activeSection === "dashboard"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setActiveSection("dashboard")}
+            >
               <Icon name="grid" />
               Dashboard
             </button>
 
-            <button className="doctor-nav">
+            <button
+              className={`doctor-nav ${
+                activeSection === "patients"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setActiveSection("patients")}
+            >
               <Icon name="patients" />
-              Patients
+              Patient Lookup
             </button>
 
-            <button className="doctor-nav">
-              <Icon name="file" />
-              Medical Records
-            </button>
-
-            <button className="doctor-nav">
+            <button
+              className={`doctor-nav ${
+                activeSection === "reports"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() => setActiveSection("reports")}
+            >
               <Icon name="ai" />
               AI Reports
             </button>
@@ -474,6 +584,9 @@ function DoctorDashboard() {
 
         {/* SEARCH */}
 
+        {(activeSection === "dashboard" ||
+          activeSection === "patients") && (
+
         <section className="patient-search-card">
 
           <div className="search-card-heading">
@@ -537,6 +650,8 @@ function DoctorDashboard() {
 
         </section>
 
+        )}
+
 
         {/* MESSAGES */}
 
@@ -555,7 +670,7 @@ function DoctorDashboard() {
 
         {/* PATIENT */}
 
-        {patient && (
+        {patient && activeSection !== "reports" && (
 
           <section className="patient-record-section">
 
@@ -700,9 +815,111 @@ function DoctorDashboard() {
         )}
 
 
+        {/* SAVED REPORTS */}
+
+        {patient &&
+          (activeSection === "dashboard" ||
+            activeSection === "reports") && (
+
+          <section className="saved-reports-section">
+
+            <div className="saved-reports-header">
+
+              <div>
+                <span>
+                  SAVED AI REPORTS
+                </span>
+
+                <h2>
+                  Report history
+                </h2>
+              </div>
+
+              <strong>
+                {savedReports.length} saved
+              </strong>
+
+            </div>
+
+            {savedReports.length === 0 ? (
+
+              <div className="no-records">
+                Saved AI reports will appear here after review.
+              </div>
+
+            ) : (
+
+              <div className="saved-report-list">
+
+                {savedReports.map((report) => (
+
+                  <button
+                    className={`saved-report-row ${
+                      activeReportId === report.id
+                        ? "selected"
+                        : ""
+                    }`}
+                    key={report.id}
+                    onClick={() =>
+                      openSavedReport(report)
+                    }
+                  >
+
+                    <div>
+                      <strong>
+                        {report.prediction}
+                      </strong>
+
+                      <span>
+                        {report.model ||
+                          "Clinical AI Model"}
+                      </span>
+                    </div>
+
+                    <time>
+                      {new Date(
+                        report.created_at
+                      ).toLocaleString()}
+                    </time>
+
+                  </button>
+
+                ))}
+
+              </div>
+
+            )}
+
+          </section>
+
+        )}
+
+
+        {!patient && activeSection === "reports" && (
+
+          <section className="saved-reports-section">
+
+            <div className="saved-reports-header">
+              <div>
+                <span>SAVED AI REPORTS</span>
+                <h2>Search a patient first</h2>
+              </div>
+            </div>
+
+            <div className="no-records">
+              Enter a Patient ID in Patient Lookup to view
+              that patient's saved AI reports.
+            </div>
+
+          </section>
+
+        )}
+
+
         {/* SELECTED SUBMISSION */}
 
-        {selectedSubmission && (
+        {selectedSubmission &&
+          activeSection !== "reports" && (
 
           <section className="clinical-review">
 
@@ -928,6 +1145,119 @@ function DoctorDashboard() {
                 </small>
 
               </div>
+
+            </div>
+
+            {aiResult.heatmap_url && (
+
+              <div className="xai-panel">
+
+                <div>
+                  <span>
+                    XAI HEATMAP
+                  </span>
+
+                  <strong>
+                    Visual explanation
+                  </strong>
+
+                  <p>
+                    {aiResult.xai?.gradcam_note}
+                  </p>
+                </div>
+
+                <img
+                  src={aiResult.heatmap_url}
+                  alt="AI explainability heatmap"
+                />
+
+              </div>
+
+            )}
+
+            {aiResult.xai && (
+
+              <div className="xai-details">
+
+                <div>
+                  <span>
+                    CLINICAL CONTEXT
+                  </span>
+
+                  <p>
+                    {aiResult.xai.about}
+                  </p>
+                </div>
+
+                <div>
+                  <span>
+                    MODEL SIGNALS
+                  </span>
+
+                  <ul>
+                    {aiResult.xai.signals?.map((signal) => (
+                      <li key={signal}>
+                        {signal}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+              </div>
+
+            )}
+
+            {aiResult.top_predictions && (
+
+              <div className="top-predictions">
+
+                <span>
+                  TOP PREDICTIONS
+                </span>
+
+                {aiResult.top_predictions.map((item) => (
+
+                  <div
+                    className="top-prediction-row"
+                    key={item.label}
+                  >
+                    <strong>
+                      {item.label}
+                    </strong>
+
+                    <span>
+                      {(
+                        Number(item.confidence) * 100
+                      ).toFixed(1)}
+                      %
+                    </span>
+                  </div>
+
+                ))}
+
+              </div>
+
+            )}
+
+            <div className="report-actions">
+
+              <button
+                className="save-report-button"
+                onClick={saveCurrentReport}
+                disabled={
+                  savingReport ||
+                  !selectedSubmission ||
+                  Boolean(activeReportId)
+                }
+              >
+                <Icon name="file" size={16} />
+
+                {activeReportId
+                  ? "Report saved"
+                  : savingReport
+                    ? "Saving..."
+                    : "Save report"}
+              </button>
 
             </div>
 

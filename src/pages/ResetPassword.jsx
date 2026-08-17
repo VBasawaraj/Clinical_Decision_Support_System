@@ -64,7 +64,10 @@ function ResetPassword() {
 
       <div className="auth-card">
 
-        <h1>Reset Password</h1>
+        <div className="auth-card-heading">
+          <span>SECURE UPDATE</span>
+          <h2>Reset password</h2>
+        </div>
 
         {error && (
           <p className="error">
