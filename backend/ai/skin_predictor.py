@@ -1,28 +1,56 @@
 from pathlib import Path
+import time
 
 import cv2
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 
-
 from skin_class_names import class_names
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-MODEL_PATH = ROOT_DIR / "models" / "skin_disease" / "skin_disease_model.keras"
 
+MODEL_PATH = (
+    ROOT_DIR
+    / "models"
+    / "skin_disease"
+    / "skin_disease_model.keras"
+)
+
+
+# ---------------------------------------------------------
+# LOAD MODEL
+# ---------------------------------------------------------
+
+print("AI: Loading skin disease model...")
 model = load_model(MODEL_PATH)
+print("AI: Skin disease model loaded successfully.")
 
+
+# ---------------------------------------------------------
+# IMAGE PREPROCESSING
+# ---------------------------------------------------------
 
 def preprocess_image(image_path):
-    img = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    print(f"AI: Reading image: {image_path}")
+
+    img = cv2.imread(
+        str(image_path),
+        cv2.IMREAD_COLOR
+    )
 
     if img is None:
-        raise ValueError(f"Could not read image at {image_path}")
+        raise ValueError(
+            f"Could not read image at {image_path}"
+        )
 
-    # OpenCV loads images as BGR, convert to RGB
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # OpenCV loads images as BGR,
+    # convert to RGB
+    img = cv2.cvtColor(
+        img,
+        cv2.COLOR_BGR2RGB
+    )
 
     # Model expects 224 x 224
     img = cv2.resize(
@@ -32,93 +60,341 @@ def preprocess_image(image_path):
     )
 
     # Convert to float and normalize
-    img = img.astype(np.float32) / 255.0
+    img = img.astype(
+        np.float32
+    ) / 255.0
 
     # Add batch dimension
-    return np.expand_dims(img, axis=0)
+    return np.expand_dims(
+        img,
+        axis=0
+    )
 
+
+# ---------------------------------------------------------
+# SKIN DISEASE PREDICTION
+# ---------------------------------------------------------
 
 def analyze_skin_disease(image_path):
-    img = preprocess_image(image_path)
-    prediction = model.predict(img, verbose=0)[0]
-    class_index = int(np.argmax(prediction))
-    confidence = float(prediction[class_index])
 
-    top_indices = np.argsort(prediction)[::-1][:3]
+    print("AI: Starting preprocessing...")
+
+    start = time.time()
+
+    img = preprocess_image(
+        image_path
+    )
+
+    preprocessing_time = (
+        time.time() - start
+    )
+
+    print(
+        f"AI: Preprocessing completed in "
+        f"{preprocessing_time:.2f} seconds"
+    )
+
+
+    print("AI: Starting model.predict()...")
+
+    start = time.time()
+
+    prediction = model.predict(
+        img,
+        verbose=0
+    )[0]
+
+    prediction_time = (
+        time.time() - start
+    )
+
+    print(
+        f"AI: model.predict() completed in "
+        f"{prediction_time:.2f} seconds"
+    )
+
+
+    class_index = int(
+        np.argmax(prediction)
+    )
+
+    confidence = float(
+        prediction[class_index]
+    )
+
+
+    top_indices = np.argsort(
+        prediction
+    )[::-1][:3]
+
+
     top_predictions = [
         {
-            "label": class_names[int(index)],
-            "confidence": round(float(prediction[int(index)]), 4),
+            "label": class_names[
+                int(index)
+            ],
+            "confidence": round(
+                float(
+                    prediction[
+                        int(index)
+                    ]
+                ),
+                4
+            ),
         }
         for index in top_indices
     ]
 
-    return {
-        "class_index": class_index,
-        "predicted_disease": class_names[class_index],
-        "prediction": class_names[class_index],
-        "confidence": round(confidence, 4),
-        "top_predictions": top_predictions,
-    }
 
+    print(
+        f"AI: Prediction = "
+        f"{class_names[class_index]}"
+    )
 
-def _build_gradcam_model():
-    base_model = model.layers[0]
-    last_conv_layer = base_model.get_layer("Conv_1")
-    return tf.keras.Model(
-        inputs=base_model.input,
-        outputs=[last_conv_layer.output, base_model.output],
+    print(
+        f"AI: Confidence = "
+        f"{confidence:.4f}"
     )
 
 
-base_grad_model = _build_gradcam_model()
+    return {
+        "class_index": class_index,
+
+        "predicted_disease":
+            class_names[class_index],
+
+        "prediction":
+            class_names[class_index],
+
+        "confidence":
+            round(
+                confidence,
+                4
+            ),
+
+        "top_predictions":
+            top_predictions,
+    }
 
 
-def _classifier_prediction(base_output):
+# ---------------------------------------------------------
+# GRAD-CAM MODEL
+# ---------------------------------------------------------
+
+def _build_gradcam_model():
+
+    base_model = model.layers[0]
+
+    last_conv_layer = (
+        base_model.get_layer(
+            "Conv_1"
+        )
+    )
+
+    return tf.keras.Model(
+        inputs=base_model.input,
+        outputs=[
+            last_conv_layer.output,
+            base_model.output,
+        ],
+    )
+
+
+base_grad_model = (
+    _build_gradcam_model()
+)
+
+
+# ---------------------------------------------------------
+# GRAD-CAM CLASSIFIER PREDICTION
+# ---------------------------------------------------------
+
+def _classifier_prediction(
+    base_output
+):
+
     x = base_output
+
     for layer in model.layers[1:]:
-        x = layer(x, training=False)
+
+        x = layer(
+            x,
+            training=False
+        )
+
     return x
 
 
-def generate_gradcam(img_path, output_path, class_index=None):
-    img = preprocess_image(img_path)
+# ---------------------------------------------------------
+# GRAD-CAM GENERATION
+# ---------------------------------------------------------
+
+def generate_gradcam(
+    img_path,
+    output_path,
+    class_index=None
+):
+
+    print(
+        "AI: Starting Grad-CAM..."
+    )
+
+    start = time.time()
+
+
+    img = preprocess_image(
+        img_path
+    )
+
 
     with tf.GradientTape() as tape:
-        conv_outputs, base_output = base_grad_model(img)
-        predictions = _classifier_prediction(base_output)
+
+        conv_outputs, base_output = (
+            base_grad_model(img)
+        )
+
+        predictions = (
+            _classifier_prediction(
+                base_output
+            )
+        )
+
 
         if class_index is None:
-            class_index = tf.argmax(predictions[0])
 
-        class_channel = predictions[:, class_index]
+            class_index = tf.argmax(
+                predictions[0]
+            )
 
-    grads = tape.gradient(class_channel, conv_outputs)
+
+        class_channel = (
+            predictions[:, class_index]
+        )
+
+
+    print(
+        "AI: Calculating Grad-CAM gradients..."
+    )
+
+
+    grads = tape.gradient(
+        class_channel,
+        conv_outputs
+    )
+
 
     if grads is None:
-        raise ValueError("Could not compute gradients for the selected class.")
 
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+        raise ValueError(
+            "Could not compute gradients "
+            "for the selected class."
+        )
+
+
+    pooled_grads = tf.reduce_mean(
+        grads,
+        axis=(0, 1, 2)
+    )
+
+
     conv_outputs = conv_outputs[0]
-    heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
-    heatmap = tf.maximum(heatmap, 0)
 
-    max_value = tf.reduce_max(heatmap)
-    heatmap = tf.zeros_like(heatmap) if max_value == 0 else heatmap / max_value
+
+    heatmap = tf.reduce_sum(
+        conv_outputs * pooled_grads,
+        axis=-1
+    )
+
+
+    heatmap = tf.maximum(
+        heatmap,
+        0
+    )
+
+
+    max_value = tf.reduce_max(
+        heatmap
+    )
+
+
+    heatmap = (
+        tf.zeros_like(heatmap)
+        if max_value == 0
+        else heatmap / max_value
+    )
+
+
     heatmap = heatmap.numpy()
 
-    original = cv2.imread(str(img_path))
+
+    original = cv2.imread(
+        str(img_path)
+    )
+
+
     if original is None:
-        raise ValueError(f"Could not read image at {img_path}")
 
-    heatmap = cv2.resize(heatmap, (original.shape[1], original.shape[0]))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+        raise ValueError(
+            f"Could not read image "
+            f"at {img_path}"
+        )
 
-    output = cv2.addWeighted(original, 0.6, heatmap, 0.4, 0)
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(output_path), output)
+    heatmap = cv2.resize(
+        heatmap,
+        (
+            original.shape[1],
+            original.shape[0],
+        )
+    )
+
+
+    heatmap = np.uint8(
+        255 * heatmap
+    )
+
+
+    heatmap = cv2.applyColorMap(
+        heatmap,
+        cv2.COLORMAP_JET
+    )
+
+
+    output = cv2.addWeighted(
+        original,
+        0.6,
+        heatmap,
+        0.4,
+        0
+    )
+
+
+    output_path = Path(
+        output_path
+    )
+
+
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+
+    cv2.imwrite(
+        str(output_path),
+        output
+    )
+
+
+    gradcam_time = (
+        time.time() - start
+    )
+
+
+    print(
+        f"AI: Grad-CAM completed in "
+        f"{gradcam_time:.2f} seconds"
+    )
+
 
     return output_path
