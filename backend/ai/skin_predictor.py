@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
+
 
 from skin_class_names import class_names
 
@@ -16,9 +16,25 @@ model = load_model(MODEL_PATH)
 
 
 def preprocess_image(image_path):
-    img = image.load_img(image_path, target_size=(224, 224))
-    img = image.img_to_array(img)
-    img = img / 255.0
+    img = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+
+    if img is None:
+        raise ValueError(f"Could not read image at {image_path}")
+
+    # OpenCV loads images as BGR, convert to RGB
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    # Model expects 224 x 224
+    img = cv2.resize(
+        img,
+        (224, 224),
+        interpolation=cv2.INTER_AREA
+    )
+
+    # Convert to float and normalize
+    img = img.astype(np.float32) / 255.0
+
+    # Add batch dimension
     return np.expand_dims(img, axis=0)
 
 
